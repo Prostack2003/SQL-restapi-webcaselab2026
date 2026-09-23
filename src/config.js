@@ -3,6 +3,20 @@ import process from 'node:process';
 
 dotenv.config({ quiet: true });
 
+const databaseConfig = {
+    host: process.env.DB_HOST ?? 'localhost',
+    port: Number(process.env.DB_PORT ?? 5432),
+    database: process.env.DB_NAME ?? 'caselab',
+    username: process.env.DB_USER ?? 'caselab',
+    password: process.env.DB_PASSWORD,
+    pool: {
+        min: Number(process.env.DB_POOL_MIN ?? 0),
+        max: Number(process.env.DB_POOL_MAX ?? 10),
+        idle: Number(process.env.DB_POOL_IDLE_MS ?? 10000),
+        acquire: Number(process.env.DB_POOL_ACQUIRE_MS ?? 30000),
+    },
+};
+
 const DEFAULT_PORT = 3000;
 const DEFAULT_NODE_ENV = 'development';
 
@@ -54,6 +68,7 @@ const rateLimitMax = Number(process.env.RATE_LIMIT_MAX ?? 100);
 export {
     port,
     nodeEnv,
+    databaseConfig,
     requestTimeoutMs,
     geocodingBaseUrl,
     forecastBaseUrl,
