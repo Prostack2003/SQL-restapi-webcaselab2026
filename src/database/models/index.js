@@ -1,5 +1,6 @@
 import { Equipment } from './equipment.model.js';
 import { EquipmentPassport } from './equipment-passport.model.js';
+import { MaintenanceRequest } from './maintenance-request.model.js';
 import { Site } from './site.model.js';
 
 Site.hasMany(Equipment, {
@@ -30,4 +31,18 @@ EquipmentPassport.belongsTo(Equipment, {
     onDelete: 'CASCADE',
 });
 
-export { Site, Equipment, EquipmentPassport };
+Equipment.hasMany(MaintenanceRequest, {
+    foreignKey: 'equipmentId',
+    as: 'maintenanceRequests',
+    onUpdate: 'CASCADE',
+    onDelete: 'CASCADE',
+});
+
+MaintenanceRequest.belongsTo(Equipment, {
+    foreignKey: 'equipmentId',
+    as: 'equipment',
+    onUpdate: 'CASCADE',
+    onDelete: 'CASCADE',
+});
+
+export { Site, Equipment, EquipmentPassport, MaintenanceRequest };
