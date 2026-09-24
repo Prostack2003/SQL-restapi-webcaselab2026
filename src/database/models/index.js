@@ -1,4 +1,5 @@
 import { Equipment } from './equipment.model.js';
+import { EquipmentPassport } from './equipment-passport.model.js';
 import { Site } from './site.model.js';
 
 Site.hasMany(Equipment, {
@@ -15,4 +16,18 @@ Equipment.belongsTo(Site, {
     onDelete: 'RESTRICT',
 });
 
-export { Site, Equipment };
+Equipment.hasOne(EquipmentPassport, {
+    foreignKey: 'equipmentId',
+    as: 'passport',
+    onUpdate: 'CASCADE',
+    onDelete: 'CASCADE',
+});
+
+EquipmentPassport.belongsTo(Equipment, {
+    foreignKey: 'equipmentId',
+    as: 'equipment',
+    onUpdate: 'CASCADE',
+    onDelete: 'CASCADE',
+});
+
+export { Site, Equipment, EquipmentPassport };
