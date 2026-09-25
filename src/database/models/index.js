@@ -4,6 +4,7 @@ import { MaintenanceRequest } from './maintenance-request.model.js';
 import { Site } from './site.model.js';
 import { RequestStatusHistory } from './request-status-history.model.js';
 import { Technician } from './technician.model.js';
+import { RequestAssignee } from './request-assignee.model.js';
 
 Site.hasMany(Equipment, {
     foreignKey: 'siteId',
@@ -61,6 +62,48 @@ RequestStatusHistory.belongsTo(MaintenanceRequest, {
     onDelete: 'CASCADE',
 });
 
+Technician.hasMany(RequestAssignee, {
+    foreignKey: 'technicianId',
+    as: 'assignments',
+    onUpdate: 'CASCADE',
+    onDelete: 'CASCADE',
+});
+
+MaintenanceRequest.hasMany(RequestAssignee, {
+    foreignKey: 'requestId',
+    as: 'assignees',
+    onUpdate: 'CASCADE',
+    onDelete: 'CASCADE',
+});
+
+RequestAssignee.belongsTo(MaintenanceRequest, {
+    foreignKey: 'requestId',
+    as: 'request',
+    onUpdate: 'CASCADE',
+    onDelete: 'CASCADE',
+});
+
+RequestAssignee.belongsTo(Technician, {
+    foreignKey: 'technicianId',
+    as: 'technician',
+    onUpdate: 'CASCADE',
+    onDelete: 'CASCADE',
+});
+
+MaintenanceRequest.belongsToMany(Technician, {
+    through: RequestAssignee,
+    foreignKey: 'requestId',
+    otherKey: 'technicianId',
+    as: 'technicians',
+});
+
+Technician.belongsToMany(MaintenanceRequest, {
+    through: RequestAssignee,
+    foreignKey: 'technicianId',
+    otherKey: 'requestId',
+    as: 'maintenanceRequests',
+});
+
 export {
     Site,
     Equipment,
@@ -68,4 +111,5 @@ export {
     MaintenanceRequest,
     RequestStatusHistory,
     Technician,
+    RequestAssignee,
 };
