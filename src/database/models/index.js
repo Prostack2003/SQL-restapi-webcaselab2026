@@ -52,14 +52,14 @@ MaintenanceRequest.hasMany(RequestStatusHistory, {
     foreignKey: 'requestId',
     as: 'statusHistory',
     onUpdate: 'CASCADE',
-    onDelete: 'CASCADE',
+    onDelete: 'RESTRICT',
 });
 
 RequestStatusHistory.belongsTo(MaintenanceRequest, {
     foreignKey: 'requestId',
     as: 'request',
     onUpdate: 'CASCADE',
-    onDelete: 'CASCADE',
+    onDelete: 'RESTRICT',
 });
 
 Technician.hasMany(RequestAssignee, {
