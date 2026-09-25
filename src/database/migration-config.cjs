@@ -9,6 +9,8 @@ module.exports = async () => {
             dialect: 'postgres',
             ...databaseConfig,
             logging: false,
+            seederStorage: 'sequelize',
+            seederStorageTableName: 'SequelizeData',
         },
     };
 };
