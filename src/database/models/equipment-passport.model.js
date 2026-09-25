@@ -26,7 +26,7 @@ EquipmentPassport.init(
         },
         ratedPower: {
             type: DataTypes.DECIMAL(12, 3),
-            allowNull: true,
+            allowNull: false,
             validate: {
                 min: 0.001,
             },
