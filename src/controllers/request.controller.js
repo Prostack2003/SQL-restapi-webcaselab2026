@@ -1,8 +1,7 @@
 import * as requestService from '../services/request.service.js';
 
-function createRequest(request, response) {
-    const data = request.body;
-    const createdRequest = requestService.createRequest(data);
+async function createRequest(request, response) {
+    const createdRequest = await requestService.createRequest(request.body);
 
     response.location(`/api/requests/${createdRequest.id}`);
 
@@ -11,44 +10,44 @@ function createRequest(request, response) {
     });
 }
 
-function updateRequest(request, response) {
+async function updateRequest(request, response) {
     const id = request.params.id;
 
-    const requestItem = requestService.updateRequest(id, request.body);
+    const requestItem = await requestService.updateRequest(id, request.body);
 
     return response.status(200).json({
         data: requestItem,
     });
 }
 
-function deleteRequest(request, response) {
+async function deleteRequest(request, response) {
     const id = request.params.id;
-    requestService.deleteRequest(id);
+    await requestService.deleteRequest(id);
 
     return response.status(204).send();
 }
 
-function listRequests(request, response) {
-    const { items, meta } = requestService.listRequests(request.validatedQuery);
+async function listRequests(request, response) {
+    const result = await requestService.listRequests(request.validatedQuery);
 
     return response.status(200).json({
-        data: items,
-        meta,
+        data: result.items,
+        meta: result.meta,
     });
 }
 
-function getRequestById(request, response) {
+async function getRequestById(request, response) {
     const id = request.params.id;
-    const requestItem = requestService.getRequestById(id);
+    const requestItem = await requestService.getRequestById(id);
 
     return response.status(200).json({
         data: requestItem,
     });
 }
 
-function listRequestsByEquipmentId(request, response) {
+async function listRequestsByEquipmentId(request, response) {
     const id = request.params.id;
-    const { items, meta } = requestService.listRequestsByEquipmentId(
+    const { items, meta } = await requestService.listRequestsByEquipmentId(
         id,
         request.validatedQuery
     );
@@ -59,10 +58,10 @@ function listRequestsByEquipmentId(request, response) {
     });
 }
 
-function changeRequestStatus(request, response) {
+async function changeRequestStatus(request, response) {
     const id = request.params.id;
     const status = request.body.status;
-    const requestItem = requestService.changeRequestStatus(id, status);
+    const requestItem = await requestService.changeRequestStatus(id, status);
 
     return response.status(200).json({
         data: requestItem,

@@ -12,21 +12,12 @@ const ALLOWED_STATUS_TRANSITIONS = {
     rejected: [],
 };
 
-const PRIORITY_ORDER = {
-    low: 1,
-    medium: 2,
-    high: 3,
-    critical: 4,
-};
+async function createRequest(data) {
+    const equipment = await equipmentRepository.findById(data.equipmentId);
 
-function createRequest(data) {
-    const equipment = equipmentRepository.findById(data.equipmentId);
-
-    if (!equipment) {
+    if (equipment === null) {
         throw new NotFoundError('Такого оборудования не существует');
     }
-
-    const now = new Date().toISOString();
 
     const requestObject = {
         id: randomUUID(),
@@ -36,15 +27,16 @@ function createRequest(data) {
         priority: data.priority,
         status: 'new',
         plannedAt: data.plannedAt,
-        createdAt: now,
-        updatedAt: now,
+        author: 'system',
     };
 
-    return requestRepository.create(requestObject);
+    const createdRequest = await requestRepository.create(requestObject);
+
+    return mapRequestToResponse(createdRequest);
 }
 
-function updateRequest(requestId, changes) {
-    getRequestById(requestId);
+async function updateRequest(requestId, changes) {
+    await getRequestById(requestId);
 
     if (Object.keys(changes).length === 0) {
         throw new ValidationError('Переданы некорректные данные', [
@@ -56,7 +48,9 @@ function updateRequest(requestId, changes) {
     }
 
     if (changes.equipmentId !== undefined) {
-        const equipment = equipmentRepository.findById(changes.equipmentId);
+        const equipment = await equipmentRepository.findById(
+            changes.equipmentId
+        );
 
         if (equipment === null) {
             throw new NotFoundError(
@@ -65,9 +59,7 @@ function updateRequest(requestId, changes) {
         }
     }
 
-    const allowedChanges = {
-        updatedAt: new Date().toISOString(),
-    };
+    const allowedChanges = {};
 
     if (changes.equipmentId !== undefined) {
         allowedChanges.equipmentId = changes.equipmentId;
@@ -89,106 +81,59 @@ function updateRequest(requestId, changes) {
         allowedChanges.plannedAt = changes.plannedAt;
     }
 
-    return requestRepository.update(requestId, allowedChanges);
+    const updatedRequest = await requestRepository.update(
+        requestId,
+        allowedChanges
+    );
+
+    return mapRequestToResponse(updatedRequest);
 }
 
-function deleteRequest(requestId) {
-    getRequestById(requestId);
+async function deleteRequest(requestId) {
+    await getRequestById(requestId);
     return requestRepository.remove(requestId);
 }
 
-function getRequestById(requestId) {
-    const request = requestRepository.findById(requestId);
-    if (!request) {
+async function getRequestById(requestId) {
+    const maintenanceRequest = await requestRepository.findById(requestId);
+
+    if (maintenanceRequest === null) {
         throw new NotFoundError(
             `Заявка с идентификатором ${requestId} не найдена`
         );
     }
-    return request;
+
+    return mapRequestToResponse(maintenanceRequest);
 }
 
-function filterSortAndPaginateRequests(requests, query = {}) {
-    let filteredRequests = requests;
-
-    if (query.status) {
-        filteredRequests = filteredRequests.filter(
-            (item) => item.status === query.status
-        );
-    }
-
-    if (query.priority) {
-        filteredRequests = filteredRequests.filter(
-            (item) => item.priority === query.priority
-        );
-    }
-
-    if (query.equipmentId) {
-        filteredRequests = filteredRequests.filter(
-            (item) => item.equipmentId === query.equipmentId
-        );
-    }
-
-    if (query.createdFrom) {
-        const createdFromTimestamp = Date.parse(query.createdFrom);
-        filteredRequests = filteredRequests.filter(
-            (item) => Date.parse(item.createdAt) >= createdFromTimestamp
-        );
-    }
-
-    if (query.createdTo) {
-        const createdToTimestamp = Date.parse(query.createdTo);
-        filteredRequests = filteredRequests.filter(
-            (item) => Date.parse(item.createdAt) <= createdToTimestamp
-        );
-    }
-
-    const sortBy = query.sortBy ?? 'createdAt';
-
-    filteredRequests.sort((first, second) => {
-        let comparison;
-
-        if (sortBy === 'priority') {
-            comparison =
-                PRIORITY_ORDER[first.priority] -
-                PRIORITY_ORDER[second.priority];
-        } else {
-            comparison = String(first[sortBy] ?? '').localeCompare(
-                String(second[sortBy] ?? ''),
-                'ru'
-            );
-        }
-
-        if (query.order === 'desc') {
-            return -comparison;
-        }
-
-        return comparison;
-    });
-
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 10;
-    const total = filteredRequests.length;
-    const startIndex = (page - 1) * limit;
-    const items = filteredRequests.slice(startIndex, startIndex + limit);
+function mapRequestToResponse(maintenanceRequest) {
+    const { assignees, ...requestData } = maintenanceRequest;
 
     return {
-        items,
+        ...requestData,
+        assignees: assignees.map((assignment) => ({
+            ...assignment.technician,
+            role: assignment.role,
+            hours: Number(assignment.hours),
+        })),
+    };
+}
+
+async function listRequests(query = {}) {
+    const { rows, count } = await requestRepository.findAll(query);
+
+    return {
+        items: rows.map(mapRequestToResponse),
         meta: {
-            total,
-            page,
-            limit,
+            total: count,
+            page: query.page ?? 1,
+            limit: query.limit ?? 10,
         },
     };
 }
 
-function listRequests(query = {}) {
-    let requests = requestRepository.findAll();
-
-    return filterSortAndPaginateRequests(requests, query);
-}
-
-function changeRequestStatus(requestId, newStatus) {
-    const maintenanceRequest = getRequestById(requestId);
+async function changeRequestStatus(requestId, newStatus) {
+    const maintenanceRequest = await getRequestById(requestId);
 
     const allowedStatuses =
         ALLOWED_STATUS_TRANSITIONS[maintenanceRequest.status];
@@ -198,25 +143,37 @@ function changeRequestStatus(requestId, newStatus) {
             `Переход статуса из "${maintenanceRequest.status}" в "${newStatus}" запрещён`
         );
     }
+    if (
+        newStatus === 'in_progress' &&
+        maintenanceRequest.assignees.length === 0
+    ) {
+        throw new ConflictError(
+            'Нельзя перевести заявку в работу без назначенного техника'
+        );
+    }
 
-    return requestRepository.update(requestId, {
-        status: newStatus,
-        updatedAt: new Date().toISOString(),
-    });
+    const updatedRequest = await requestRepository.changeStatus(
+        requestId,
+        maintenanceRequest.status,
+        newStatus
+    );
+
+    return mapRequestToResponse(updatedRequest);
 }
 
-function listRequestsByEquipmentId(equipmentId, query = {}) {
-    const equipment = equipmentRepository.findById(equipmentId);
+async function listRequestsByEquipmentId(equipmentId, query = {}) {
+    const equipment = await equipmentRepository.findById(equipmentId);
 
-    if (!equipment) {
+    if (equipment === null) {
         throw new NotFoundError(
             `Оборудование с идентификатором "${equipmentId}" не найдено`
         );
     }
 
-    const requests = requestRepository.findByEquipmentId(equipmentId);
-
-    return filterSortAndPaginateRequests(requests, query);
+    return listRequests({
+        ...query,
+        equipmentId,
+    });
 }
 
 export {
