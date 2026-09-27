@@ -1,64 +1,230 @@
 import { Op } from 'sequelize';
-import { MaintenanceRequest } from '../database/models/index.js';
+import {
+    Equipment,
+    MaintenanceRequest,
+    RequestAssignee,
+    Technician,
+    RequestStatusHistory,
+} from '../database/models/index.js';
+import { sequelize } from '../database/sequelize.js';
 
-const requestItems = [];
+const REQUEST_SORT_FIELDS = {
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt',
+    plannedAt: 'plannedAt',
+    priority: 'priority',
+    status: 'status',
+};
 
-function create(maintenanceRequest) {
-    const clone = structuredClone(maintenanceRequest);
+async function create(requestData) {
+    const maintenanceRequest = await MaintenanceRequest.create({
+        id: requestData.id,
+        equipmentId: requestData.equipmentId,
+        title: requestData.title,
+        description: requestData.description ?? null,
+        priority: requestData.priority,
+        status: requestData.status ?? 'new',
+        plannedAt: requestData.plannedAt ?? null,
+        author: requestData.author ?? 'system',
+    });
 
-    requestItems.push(clone);
-
-    return structuredClone(clone);
+    return findById(maintenanceRequest.id);
 }
 
-function findAll() {
-    return structuredClone(requestItems);
-}
+async function findAll(query = {}) {
+    const where = {};
 
-function findById(id) {
-    const foundItem = requestItems.find((item) => item.id === id);
-
-    if (foundItem === undefined) {
-        return null;
+    if (query.equipmentId) {
+        where.equipmentId = query.equipmentId;
     }
 
-    return structuredClone(foundItem);
-}
-
-function update(id, changes) {
-    const index = requestItems.findIndex((item) => item.id === id);
-
-    if (index === -1) {
-        return null;
+    if (query.status) {
+        where.status = query.status;
     }
 
-    const newRequest = {
-        ...requestItems[index],
-        ...structuredClone(changes),
+    if (query.priority) {
+        where.priority = query.priority;
+    }
+
+    if (query.createdFrom || query.createdTo) {
+        where.createdAt = {};
+
+        if (query.createdFrom) {
+            where.createdAt[Op.gte] = query.createdFrom;
+        }
+
+        if (query.createdTo) {
+            where.createdAt[Op.lte] = query.createdTo;
+        }
+    }
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const offset = (page - 1) * limit;
+
+    const sortField = REQUEST_SORT_FIELDS[query.sortBy] ?? 'createdAt';
+    const sortDirection = query.order === 'desc' ? 'DESC' : 'ASC';
+
+    const { rows, count } = await MaintenanceRequest.findAndCountAll({
+        where,
+        attributes: [
+            'id',
+            'equipmentId',
+            'title',
+            'description',
+            'priority',
+            'status',
+            'plannedAt',
+            'author',
+            'createdAt',
+            'updatedAt',
+        ],
+        include: [
+            {
+                model: Equipment,
+                as: 'equipment',
+                attributes: [
+                    'id',
+                    'name',
+                    'type',
+                    'serialNumber',
+                    'status',
+                    'installedAt',
+                ],
+            },
+            {
+                model: RequestAssignee,
+                as: 'assignees',
+                attributes: ['role', 'hours'],
+                required: false,
+                include: [
+                    {
+                        model: Technician,
+                        as: 'technician',
+                        attributes: [
+                            'id',
+                            'fullName',
+                            'specialization',
+                            'employeeNumber',
+                        ],
+                    },
+                ],
+            },
+        ],
+        order: [[sortField, sortDirection]],
+        limit,
+        offset,
+        distinct: true,
+    });
+
+    return {
+        rows: rows.map((request) => request.get({ plain: true })),
+        count,
     };
-
-    requestItems[index] = newRequest;
-
-    return structuredClone(newRequest);
 }
 
-function remove(id) {
-    const index = requestItems.findIndex((request) => request.id === id);
+async function findById(id) {
+    const maintenanceRequest = await MaintenanceRequest.findByPk(id, {
+        attributes: [
+            'id',
+            'equipmentId',
+            'title',
+            'description',
+            'priority',
+            'status',
+            'plannedAt',
+            'author',
+            'createdAt',
+            'updatedAt',
+        ],
+        include: [
+            {
+                model: Equipment,
+                as: 'equipment',
+                attributes: [
+                    'id',
+                    'name',
+                    'type',
+                    'serialNumber',
+                    'status',
+                    'installedAt',
+                ],
+            },
+            {
+                model: RequestAssignee,
+                as: 'assignees',
+                attributes: ['role', 'hours'],
+                required: false,
+                include: [
+                    {
+                        model: Technician,
+                        as: 'technician',
+                        attributes: [
+                            'id',
+                            'fullName',
+                            'specialization',
+                            'employeeNumber',
+                        ],
+                    },
+                ],
+            },
+        ],
+    });
 
-    if (index === -1) {
+    if (maintenanceRequest === null) {
         return null;
     }
 
-    const [removedElement] = requestItems.splice(index, 1);
-
-    return structuredClone(removedElement);
+    return maintenanceRequest.get({ plain: true });
 }
 
-function findByEquipmentId(equipmentId) {
-    const foundEquipment = requestItems.filter(
-        (item) => item.equipmentId === equipmentId
-    );
-    return structuredClone(foundEquipment);
+async function update(id, changes) {
+    const [updatedCount] = await MaintenanceRequest.update(changes, {
+        where: {
+            id,
+        },
+    });
+
+    if (updatedCount === 0) {
+        return null;
+    }
+
+    return findById(id);
+}
+
+async function changeStatus(id, oldStatus, newStatus) {
+    await sequelize.transaction(async (transaction) => {
+        await MaintenanceRequest.update(
+            {
+                status: newStatus,
+            },
+            {
+                where: { id },
+                transaction,
+            }
+        );
+
+        await RequestStatusHistory.create(
+            {
+                requestId: id,
+                oldStatus,
+                newStatus,
+            },
+            {
+                transaction,
+            }
+        );
+    });
+
+    return findById(id);
+}
+
+async function remove(id) {
+    const deletedCount = await MaintenanceRequest.destroy({
+        where: { id },
+    });
+
+    return deletedCount > 0;
 }
 
 async function hasOpenRequestsByEquipmentId(equipmentId) {
@@ -79,7 +245,7 @@ export {
     findAll,
     findById,
     update,
+    changeStatus,
     remove,
-    findByEquipmentId,
     hasOpenRequestsByEquipmentId,
 };
