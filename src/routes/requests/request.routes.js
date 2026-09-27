@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as requestController from '../../controllers/request.controller.js';
 import * as requestAssigneeController from '../../controllers/request-assignee.controller.js';
+import * as requestStatusHistoryController from '../../controllers/request-status-history.controller.js';
 import {
     validateRequestIdParams,
     validateCreateRequestBody,
@@ -22,6 +23,12 @@ requestRouter.get(
     '/requests/:id',
     validateRequestIdParams,
     requestController.getRequestById
+);
+
+requestRouter.get(
+    '/requests/:id/history',
+    validateRequestIdParams,
+    requestStatusHistoryController.listRequestStatusHistory
 );
 
 requestRouter.post(
