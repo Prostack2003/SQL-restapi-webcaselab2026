@@ -10,9 +10,18 @@ const requestSortBySchema = z.enum([
     'status',
 ]);
 const requestOrderBySchema = z.enum(['asc', 'desc']);
+const requestAssigneeSchema = z.object({
+    technicianId: z.uuid(),
+    role: z.enum(['lead', 'member']),
+    hours: z.number().positive().max(9999.99),
+});
 
 const requestIdParamsSchema = z.object({
     id: z.uuid(),
+});
+
+const requestAssigneeParamsSchema = requestIdParamsSchema.extend({
+    userId: z.uuid(),
 });
 
 const requestQuerySchema = z
@@ -60,10 +69,16 @@ const changeRequestStatusBodySchema = z.object({
     status: requestStatusSchema,
 });
 
+const assignRequestTeamBodySchema = z.object({
+    assignees: z.array(requestAssigneeSchema).min(1),
+});
+
 export {
     requestIdParamsSchema,
     requestQuerySchema,
     createRequestBodySchema,
     updateRequestBodySchema,
     changeRequestStatusBodySchema,
+    assignRequestTeamBodySchema,
+    requestAssigneeParamsSchema,
 };

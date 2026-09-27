@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import * as requestController from '../../controllers/request.controller.js';
+import * as requestAssigneeController from '../../controllers/request-assignee.controller.js';
 import {
     validateRequestIdParams,
     validateCreateRequestBody,
     validateUpdateRequestBody,
     validateChangeRequestStatusBody,
     validateRequestQuery,
+    validateAssignRequestTeamBody,
+    validateRequestAssigneeParams,
 } from '../../middlewares/validate.middleware.js';
 
 const requestRouter = Router();
@@ -45,6 +48,19 @@ requestRouter.delete(
     '/requests/:id',
     validateRequestIdParams,
     requestController.deleteRequest
+);
+
+requestRouter.post(
+    '/requests/:id/assignees',
+    validateRequestIdParams,
+    validateAssignRequestTeamBody,
+    requestAssigneeController.replaceRequestTeam
+);
+
+requestRouter.delete(
+    '/requests/:id/assignees/:userId',
+    validateRequestAssigneeParams,
+    requestAssigneeController.removeRequestAssignee
 );
 
 export { requestRouter };
