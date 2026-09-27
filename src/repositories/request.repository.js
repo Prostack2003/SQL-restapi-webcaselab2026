@@ -192,14 +192,32 @@ async function update(id, changes) {
     return findById(id);
 }
 
-async function changeStatus(id, oldStatus, newStatus) {
-    await sequelize.transaction(async (transaction) => {
-        await MaintenanceRequest.update(
+async function changeStatus(id, newStatus, validateChange) {
+    const requestExists = await sequelize.transaction(async (transaction) => {
+        const maintenanceRequest = await MaintenanceRequest.findByPk(id, {
+            attributes: ['id', 'status'],
+            transaction,
+            lock: transaction.LOCK.UPDATE,
+        });
+
+        if (maintenanceRequest === null) {
+            return false;
+        }
+
+        const assigneeCount = await RequestAssignee.count({
+            where: { requestId: id },
+            transaction,
+        });
+
+        validateChange(maintenanceRequest.status, assigneeCount);
+
+        const oldStatus = maintenanceRequest.status;
+
+        await maintenanceRequest.update(
             {
                 status: newStatus,
             },
             {
-                where: { id },
                 transaction,
             }
         );
@@ -214,7 +232,13 @@ async function changeStatus(id, oldStatus, newStatus) {
                 transaction,
             }
         );
+
+        return true;
     });
+
+    if (!requestExists) {
+        return null;
+    }
 
     return findById(id);
 }

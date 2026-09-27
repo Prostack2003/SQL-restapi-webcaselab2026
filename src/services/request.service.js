@@ -132,31 +132,35 @@ async function listRequests(query = {}) {
     };
 }
 
-async function changeRequestStatus(requestId, newStatus) {
-    const maintenanceRequest = await getRequestById(requestId);
-
-    const allowedStatuses =
-        ALLOWED_STATUS_TRANSITIONS[maintenanceRequest.status];
+function validateStatusChange(currentStatus, newStatus, assigneeCount) {
+    const allowedStatuses = ALLOWED_STATUS_TRANSITIONS[currentStatus];
 
     if (!allowedStatuses.includes(newStatus)) {
         throw new ConflictError(
-            `Переход статуса из "${maintenanceRequest.status}" в "${newStatus}" запрещён`
+            `Переход статуса из "${currentStatus}" в "${newStatus}" запрещён`
         );
     }
-    if (
-        newStatus === 'in_progress' &&
-        maintenanceRequest.assignees.length === 0
-    ) {
+
+    if (newStatus === 'in_progress' && assigneeCount === 0) {
         throw new ConflictError(
             'Нельзя перевести заявку в работу без назначенного техника'
         );
     }
+}
 
+async function changeRequestStatus(requestId, newStatus) {
     const updatedRequest = await requestRepository.changeStatus(
         requestId,
-        maintenanceRequest.status,
-        newStatus
+        newStatus,
+        (currentStatus, assigneeCount) =>
+            validateStatusChange(currentStatus, newStatus, assigneeCount)
     );
+
+    if (updatedRequest === null) {
+        throw new NotFoundError(
+            `Заявка с идентификатором ${requestId} не найдена`
+        );
+    }
 
     return mapRequestToResponse(updatedRequest);
 }
