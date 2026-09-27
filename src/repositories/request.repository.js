@@ -240,6 +240,14 @@ async function hasOpenRequestsByEquipmentId(equipmentId) {
     return openRequestsCount > 0;
 }
 
+async function existsById(id) {
+    const maintenanceRequest = await MaintenanceRequest.findByPk(id, {
+        attributes: ['id'],
+    });
+
+    return maintenanceRequest !== null;
+}
+
 export {
     create,
     findAll,
@@ -248,4 +256,5 @@ export {
     changeStatus,
     remove,
     hasOpenRequestsByEquipmentId,
+    existsById,
 };
