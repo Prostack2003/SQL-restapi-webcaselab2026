@@ -1,7 +1,7 @@
 {
     "info": {
         "_postman_id": "86fa033f-aa15-41f2-88ba-65341ec0b6c4",
-        "name": "2 week - Express",
+        "name": "Case Lab 3 — SQL and Sequelize API",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
         "_exporter_id": "33759105"
     },
@@ -76,6 +76,44 @@
                             "raw": "{{baseUrl}}/equipment",
                             "host": ["{{baseUrl}}"],
                             "path": ["equipment"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create equipment with duplicate serial number",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const body = pm.response.json();\n\npm.test('Статус ответа 409', () => {\n    pm.response.to.have.status(409);\n});\n\npm.test('Дубликат серийного номера отклонён', () => {\n    pm.expect(body.error.code).to.eql('CONFLICT');\n    pm.expect(body.error.message).to.include('серийным номером');\n});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/equipment",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["equipment"]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Duplicate Postman Turbine\",\n  \"type\": \"turbine\",\n  \"serialNumber\": \"{{equipmentSerial}}\",\n  \"location\": {\n    \"lat\": 55.75,\n    \"lon\": 37.62\n  },\n  \"status\": \"operational\",\n  \"installedAt\": \"2025-01-01\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
                         }
                     },
                     "response": []
@@ -431,6 +469,90 @@
                     "response": []
                 },
                 {
+                    "name": "Start request without assignees",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const body = pm.response.json();\n\npm.test('Статус ответа 409', () => {\n    pm.response.to.have.status(409);\n});\n\npm.test('Заявку нельзя начать без исполнителя', () => {\n    pm.expect(body.error.code).to.eql('CONFLICT');\n    pm.expect(body.error.message).to.include('без назначенного техника');\n});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/requests/{{maintenanceRequestId}}/status",
+                            "host": ["{{baseUrl}}"],
+                            "path": [
+                                "requests",
+                                "{{maintenanceRequestId}}",
+                                "status"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"status\": \"in_progress\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Assign request team",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const body = pm.response.json();\n\npm.test('Статус ответа 200', () => {\n    pm.response.to.have.status(200);\n});\n\npm.test('Назначены два специалиста', () => {\n    pm.expect(body.data).to.be.an('array');\n    pm.expect(body.data).to.have.lengthOf(2);\n});\n\npm.test('В команде ровно один ведущий', () => {\n    const leads = body.data.filter((item) => item.role === 'lead');\n    pm.expect(leads).to.have.lengthOf(1);\n    pm.expect(leads[0].id).to.eql(\n        pm.collectionVariables.get('leadTechnicianId')\n    );\n});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/requests/{{maintenanceRequestId}}/assignees",
+                            "host": ["{{baseUrl}}"],
+                            "path": [
+                                "requests",
+                                "{{maintenanceRequestId}}",
+                                "assignees"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"assignees\": [\n    {\n      \"technicianId\": \"{{leadTechnicianId}}\",\n      \"role\": \"lead\",\n      \"hours\": 4\n    },\n    {\n      \"technicianId\": \"{{memberTechnicianId}}\",\n      \"role\": \"member\",\n      \"hours\": 2.5\n    }\n  ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": []
+                },
+                {
                     "name": "Start maintenance request",
                     "event": [
                         {
@@ -468,6 +590,102 @@
                     "response": []
                 },
                 {
+                    "name": "Get request history after start",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const body = pm.response.json();\n\npm.test('Статус ответа 200', () => {\n    pm.response.to.have.status(200);\n});\n\npm.test('История содержит переход new → in_progress', () => {\n    pm.expect(body.data).to.be.an('array');\n    pm.expect(body.data).to.have.lengthOf(1);\n    pm.expect(body.data[0].oldStatus).to.eql('new');\n    pm.expect(body.data[0].newStatus).to.eql('in_progress');\n    pm.expect(body.data[0].changedAt).to.be.a('string');\n});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/requests/{{maintenanceRequestId}}/history",
+                            "host": ["{{baseUrl}}"],
+                            "path": [
+                                "requests",
+                                "{{maintenanceRequestId}}",
+                                "history"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Remove request team member",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Статус ответа 204', () => {\n    pm.response.to.have.status(204);\n});\n\npm.test('Тело ответа пустое', () => {\n    pm.expect(pm.response.text()).to.eql('');\n});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/requests/{{maintenanceRequestId}}/assignees/{{memberTechnicianId}}",
+                            "host": ["{{baseUrl}}"],
+                            "path": [
+                                "requests",
+                                "{{maintenanceRequestId}}",
+                                "assignees",
+                                "{{memberTechnicianId}}"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get request after team member removal",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const body = pm.response.json();\n\npm.test('Статус ответа 200', () => {\n    pm.response.to.have.status(200);\n});\n\npm.test('В заявке остался ведущий специалист', () => {\n    pm.expect(body.data.assignees).to.be.an('array');\n    pm.expect(body.data.assignees).to.have.lengthOf(1);\n    pm.expect(body.data.assignees[0].id).to.eql(\n        pm.collectionVariables.get('leadTechnicianId')\n    );\n    pm.expect(body.data.assignees[0].role).to.eql('lead');\n});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/requests/{{maintenanceRequestId}}",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["requests", "{{maintenanceRequestId}}"]
+                        }
+                    },
+                    "response": []
+                },
+                {
                     "name": "Complete maintenance request",
                     "event": [
                         {
@@ -499,6 +717,39 @@
                                 "requests",
                                 "{{maintenanceRequestId}}",
                                 "status"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get completed request history",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const body = pm.response.json();\n\npm.test('Статус ответа 200', () => {\n    pm.response.to.have.status(200);\n});\n\npm.test('История содержит два последовательных перехода', () => {\n    pm.expect(body.data).to.be.an('array');\n    pm.expect(body.data).to.have.lengthOf(2);\n    pm.expect(body.data[0].oldStatus).to.eql('new');\n    pm.expect(body.data[0].newStatus).to.eql('in_progress');\n    pm.expect(body.data[1].oldStatus).to.eql('in_progress');\n    pm.expect(body.data[1].newStatus).to.eql('done');\n});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/requests/{{maintenanceRequestId}}/history",
+                            "host": ["{{baseUrl}}"],
+                            "path": [
+                                "requests",
+                                "{{maintenanceRequestId}}",
+                                "history"
                             ]
                         }
                     },
@@ -542,93 +793,26 @@
                     "response": []
                 },
                 {
-                    "name": "Delete equipment with closed request",
+                    "name": "Delete request with preserved history",
                     "event": [
                         {
                             "listen": "test",
                             "script": {
                                 "type": "text/javascript",
                                 "exec": [
-                                    "pm.test('Статус ответа 204', () => {\n    pm.response.to.have.status(204);\n});\n\npm.test('Тело ответа пустое', () => {\n    pm.expect(pm.response.text()).to.eql('');\n});"
+                                    "const body = pm.response.json();\n\npm.test('Статус ответа 409', () => {\n    pm.response.to.have.status(409);\n});\n\npm.test('Заявка с историей не удалена', () => {\n    pm.expect(body.error.code).to.eql('CONFLICT');\n});"
                                 ]
                             }
                         }
                     ],
                     "request": {
                         "method": "DELETE",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/equipment/{{equipmentId}}",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["equipment", "{{equipmentId}}"]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get deleted equipment",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "const body = pm.response.json();\n\npm.test('Статус ответа 404', () => {\n    pm.response.to.have.status(404);\n});\n\npm.test('Возвращена ошибка NOT_FOUND', () => {\n    pm.expect(body.error).to.be.an('object');\n    pm.expect(body.error.code).to.eql('NOT_FOUND');\n    pm.expect(body.error.message).to.be.a('string');\n});\n\npm.test('Ошибка содержит Request ID', () => {\n    pm.expect(body.error.requestId).to.be.a('string');\n    pm.expect(\n        pm.response.headers.get('X-Request-Id')\n    ).to.eql(body.error.requestId);\n});"
-                                ]
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
                             }
-                        }
-                    ],
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/equipment/{{equipmentId}}",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["equipment", "{{equipmentId}}"]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Delete maintenance request",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Статус ответа 204', () => {\n    pm.response.to.have.status(204);\n});\n\npm.test('Тело ответа пустое', () => {\n    pm.expect(pm.response.text()).to.eql('');\n});"
-                                ]
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "DELETE",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/requests/{{maintenanceRequestId}}",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["requests", "{{maintenanceRequestId}}"]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get deleted maintenance request",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "const body = pm.response.json();\n\npm.test('Статус ответа 404', () => {\n    pm.response.to.have.status(404);\n});\n\npm.test('Возвращена ошибка NOT_FOUND', () => {\n    pm.expect(body.error).to.be.an('object');\n    pm.expect(body.error.code).to.eql('NOT_FOUND');\n    pm.expect(body.error.details).to.be.an('array');\n});\n\npm.test('Ошибка содержит Request ID', () => {\n    pm.expect(body.error.requestId).to.be.a('string');\n    pm.expect(\n        pm.response.headers.get('X-Request-Id')\n    ).to.eql(body.error.requestId);\n});"
-                                ]
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "GET",
-                        "header": [],
+                        ],
                         "url": {
                             "raw": "{{baseUrl}}/requests/{{maintenanceRequestId}}",
                             "host": ["{{baseUrl}}"],
@@ -640,17 +824,17 @@
             ]
         },
         {
-            "name": "Invalid Requests",
+            "name": "Analytics",
             "item": [
                 {
-                    "name": "Malformed JSON 400 Bad Request",
+                    "name": "Get site summary",
                     "event": [
                         {
                             "listen": "test",
                             "script": {
                                 "type": "text/javascript",
                                 "exec": [
-                                    "const body = pm.response.json();\n\npm.test('Статус ответа 400', () => {\n    pm.response.to.have.status(400);\n});\n\npm.test('Возвращена ошибка BAD_REQUEST', () => {\n    pm.expect(body.error).to.be.an('object');\n    pm.expect(body.error.code).to.eql('BAD_REQUEST');\n    pm.expect(body.error.message).to.eql(\n        'Некорректный JSON'\n    );\n});\n\npm.test('Ошибка имеет единый формат', () => {\n    pm.expect(body.error.details).to.be.an('array');\n    pm.expect(body.error.requestId).to.be.a('string');\n});"
+                                    "const body = pm.response.json();\n\npm.test('Статус ответа 200', () => {\n    pm.response.to.have.status(200);\n});\n\npm.test('Получена сводка нужной площадки', () => {\n    pm.expect(body.data.site.id).to.eql(\n        pm.collectionVariables.get('seededSiteId')\n    );\n    pm.expect(body.data.site.location.lat).to.be.a('number');\n    pm.expect(body.data.site.location.lon).to.be.a('number');\n});\n\npm.test('Сводка содержит статистику заявок', () => {\n    pm.expect(body.data.requests.total).to.be.a('number');\n    pm.expect(body.data.requests.byStatus).to.be.an('object');\n    pm.expect(body.data.requests.byPriority).to.be.an('object');\n    pm.expect(body.data.requests.averageClosureHours).to.be.a('number');\n});"
                                 ]
                             }
                         }
@@ -663,6 +847,123 @@
                                 "value": "application/json"
                             }
                         ],
+                        "url": {
+                            "raw": "{{baseUrl}}/sites/{{seededSiteId}}/summary",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["sites", "{{seededSiteId}}", "summary"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get equipment load report",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const body = pm.response.json();\n\npm.test('Статус ответа 200', () => {\n    pm.response.to.have.status(200);\n});\n\npm.test('Отчёт содержит оборудование', () => {\n    pm.expect(body.data).to.be.an('array');\n    pm.expect(body.data.length).to.be.above(0);\n});\n\npm.test('Строки отчёта содержат агрегаты', () => {\n    body.data.forEach((item) => {\n        pm.expect(item.requestCount).to.be.a('number');\n        pm.expect(item.closedRequestCount).to.be.a('number');\n        pm.expect(item.totalPlannedHours).to.be.a('number');\n        pm.expect(item).to.have.property('lastMaintenanceAt');\n    });\n});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/reports/equipment-load?minRequests=0",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["reports", "equipment-load"],
+                            "query": [
+                                {
+                                    "key": "minRequests",
+                                    "value": "0"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get filtered equipment load report",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const body = pm.response.json();\n\npm.test('Статус ответа 200', () => {\n    pm.response.to.have.status(200);\n});\n\npm.test('Применён фильтр минимального количества заявок', () => {\n    pm.expect(body.data).to.be.an('array');\n    body.data.forEach((item) => {\n        pm.expect(item.requestCount).to.be.at.least(3);\n    });\n});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/reports/equipment-load?createdFrom=2020-01-01T00%3A00%3A00.000Z&createdTo=2035-12-31T23%3A59%3A59.999Z&minRequests=3",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["reports", "equipment-load"],
+                            "query": [
+                                {
+                                    "key": "createdFrom",
+                                    "value": "2020-01-01T00%3A00%3A00.000Z"
+                                },
+                                {
+                                    "key": "createdTo",
+                                    "value": "2035-12-31T23%3A59%3A59.999Z"
+                                },
+                                {
+                                    "key": "minRequests",
+                                    "value": "3"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Invalid Requests",
+            "item": [
+                {
+                    "name": "Malformed JSON",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const body = pm.response.json();\n\npm.test('Статус ответа 400', () => {\n    pm.response.to.have.status(400);\n});\n\npm.test('Возвращена ошибка BAD_REQUEST', () => {\n    pm.expect(body.error.code).to.eql('BAD_REQUEST');\n    pm.expect(body.error.message).to.eql('Некорректный JSON');\n});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/equipment",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["equipment"]
+                        },
                         "body": {
                             "mode": "raw",
                             "raw": "{\"name\":",
@@ -671,31 +972,36 @@
                                     "language": "json"
                                 }
                             }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/equipment",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["equipment"]
                         }
                     },
                     "response": []
                 },
                 {
-                    "name": "Invalid equipment body 200 OK",
+                    "name": "Invalid equipment body",
                     "event": [
                         {
                             "listen": "test",
                             "script": {
                                 "type": "text/javascript",
                                 "exec": [
-                                    "const body = pm.response.json();\n\npm.test('Статус ответа 422', () => {\n    pm.response.to.have.status(422);\n});\n\npm.test('Возвращена ошибка VALIDATION_ERROR', () => {\n    pm.expect(body.error).to.be.an('object');\n    pm.expect(body.error.code).to.eql(\n        'VALIDATION_ERROR'\n    );\n});\n\npm.test('Ошибка содержит список некорректных полей', () => {\n    pm.expect(body.error.details).to.be.an('array');\n    pm.expect(body.error.details.length).to.be.above(0);\n\n    body.error.details.forEach((detail) => {\n        pm.expect(detail.field).to.be.a('string');\n        pm.expect(detail.message).to.be.a('string');\n    });\n});\n\npm.test('В ошибке присутствует поле name', () => {\n    const fields = body.error.details.map(\n        (detail) => detail.field\n    );\n\n    pm.expect(fields).to.include('name');\n});"
+                                    "const body = pm.response.json();\n\npm.test('Статус ответа 422', () => {\n    pm.response.to.have.status(422);\n});\n\npm.test('Ошибка содержит список некорректных полей', () => {\n    pm.expect(body.error.code).to.eql('VALIDATION_ERROR');\n    pm.expect(body.error.details).to.be.an('array');\n    pm.expect(body.error.details.length).to.be.above(0);\n});"
                                 ]
                             }
                         }
                     ],
                     "request": {
-                        "method": "GET",
-                        "header": [],
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/equipment",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["equipment"]
+                        },
                         "body": {
                             "mode": "raw",
                             "raw": "{\n  \"name\": \"ab\"\n}",
@@ -704,35 +1010,74 @@
                                     "language": "json"
                                 }
                             }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/equipment",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["equipment"]
                         }
                     },
                     "response": []
                 },
                 {
-                    "name": "Invalid equipment ID 422 Incorrect params",
+                    "name": "Invalid equipment ID",
                     "event": [
                         {
                             "listen": "test",
                             "script": {
                                 "type": "text/javascript",
                                 "exec": [
-                                    "const body = pm.response.json();\n\npm.test('Статус ответа 422', () => {\n    pm.response.to.have.status(422);\n});\n\npm.test('Возвращена ошибка VALIDATION_ERROR', () => {\n    pm.expect(body.error.code).to.eql(\n        'VALIDATION_ERROR'\n    );\n});\n\npm.test('Ошибка относится к параметру id', () => {\n    pm.expect(body.error.details).to.be.an('array');\n\n    const fields = body.error.details.map(\n        (detail) => detail.field\n    );\n\n    pm.expect(fields).to.include('id');\n});"
+                                    "const body = pm.response.json();\n\npm.test('Статус ответа 422', () => {\n    pm.response.to.have.status(422);\n});\n\npm.test('Возвращена ошибка VALIDATION_ERROR', () => {\n    pm.expect(body.error.code).to.eql('VALIDATION_ERROR');\n});"
                                 ]
                             }
                         }
                     ],
                     "request": {
                         "method": "GET",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
                         "url": {
                             "raw": "{{baseUrl}}/equipment/not-a-uuid",
                             "host": ["{{baseUrl}}"],
                             "path": ["equipment", "not-a-uuid"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Invalid report date range",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const body = pm.response.json();\n\npm.test('Статус ответа 422', () => {\n    pm.response.to.have.status(422);\n});\n\npm.test('Ошибка указывает на createdTo', () => {\n    pm.expect(body.error.code).to.eql('VALIDATION_ERROR');\n    const fields = body.error.details.map((item) => item.field);\n    pm.expect(fields).to.include('createdTo');\n});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/reports/equipment-load?createdFrom=2035-01-01T00%3A00%3A00.000Z&createdTo=2020-01-01T00%3A00%3A00.000Z",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["reports", "equipment-load"],
+                            "query": [
+                                {
+                                    "key": "createdFrom",
+                                    "value": "2035-01-01T00%3A00%3A00.000Z"
+                                },
+                                {
+                                    "key": "createdTo",
+                                    "value": "2020-01-01T00%3A00%3A00.000Z"
+                                }
+                            ]
                         }
                     },
                     "response": []
@@ -756,6 +1101,18 @@
         {
             "key": "equipmentSerial",
             "value": ""
+        },
+        {
+            "key": "seededSiteId",
+            "value": "10000000-0000-4000-8000-000000000001"
+        },
+        {
+            "key": "leadTechnicianId",
+            "value": "40000000-0000-4000-8000-000000000001"
+        },
+        {
+            "key": "memberTechnicianId",
+            "value": "40000000-0000-4000-8000-000000000002"
         }
     ]
 }
