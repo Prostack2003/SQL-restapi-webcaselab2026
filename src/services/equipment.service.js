@@ -5,9 +5,9 @@ import { NotFoundError } from '../errors/not-found.error.js';
 import { ConflictError } from '../errors/conflict.error.js';
 import { ValidationError } from '../errors/validation.error.js';
 
-function createEquipment(data) {
+async function createEquipment(data) {
     validateInstalledAt(data.installedAt);
-    const existingEquipment = equipmentRepository.findBySerialNumber(
+    const existingEquipment = await equipmentRepository.findBySerialNumber(
         data.serialNumber
     );
 
@@ -27,78 +27,52 @@ function createEquipment(data) {
         installedAt: data.installedAt,
     };
 
-    return equipmentRepository.create(equipment);
+    const createdEquipment = await equipmentRepository.create(equipment);
+
+    return mapEquipmentToResponse(createdEquipment);
 }
 
-function listEquipment(query = {}) {
-    let equipment = equipmentRepository.findAll();
-
-    if (query.type) {
-        equipment = equipment.filter((item) => {
-            return item.type === query.type;
-        });
-    }
-
-    if (query.status) {
-        equipment = equipment.filter((item) => {
-            return item.status === query.status;
-        });
-    }
-
-    if (query.installedFrom) {
-        equipment = equipment.filter((item) => {
-            return item.installedAt >= query.installedFrom;
-        });
-    }
-
-    if (query.installedTo) {
-        equipment = equipment.filter((item) => {
-            return item.installedAt <= query.installedTo;
-        });
-    }
-
-    const sortBy = query.sortBy ?? 'name';
-
-    equipment.sort((first, second) => {
-        const comparison = first[sortBy].localeCompare(second[sortBy], 'ru');
-
-        if (query.order === 'desc') {
-            return -comparison;
-        }
-
-        return comparison;
-    });
-
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 10;
-    const total = equipment.length;
-
-    const startIndex = (page - 1) * limit;
-    const items = equipment.slice(startIndex, startIndex + limit);
+function mapEquipmentToResponse(equipment) {
+    const { site, ...equipmentData } = equipment;
 
     return {
-        items,
-        meta: {
-            total,
-            page,
-            limit,
+        ...equipmentData,
+        location: {
+            lat: Number(site.latitude),
+            lon: Number(site.longitude),
         },
     };
 }
 
-function getEquipmentById(equipmentId) {
-    const equipment = equipmentRepository.findById(equipmentId);
+async function listEquipment(query = {}) {
+    const { rows, count } = await equipmentRepository.findAll(query);
+
+    const items = rows.map(mapEquipmentToResponse);
+
+    return {
+        items,
+        meta: {
+            total: count,
+            page: query.page ?? 1,
+            limit: query.limit ?? 10,
+        },
+    };
+}
+
+async function getEquipmentById(equipmentId) {
+    const equipment = await equipmentRepository.findById(equipmentId);
+
     if (equipment === null) {
         throw new NotFoundError(
             `Оборудование с идентификатором "${equipmentId}" не найдено`
         );
     }
 
-    return equipment;
+    return mapEquipmentToResponse(equipment);
 }
 
-function updateEquipment(equipmentId, changes) {
-    getEquipmentById(equipmentId);
+async function updateEquipment(equipmentId, changes) {
+    await getEquipmentById(equipmentId);
 
     if (Object.keys(changes).length === 0) {
         throw new ValidationError('Переданы некорректные данные', [
@@ -110,7 +84,7 @@ function updateEquipment(equipmentId, changes) {
     }
 
     if (changes.serialNumber !== undefined) {
-        const existingEquipment = equipmentRepository.findBySerialNumber(
+        const existingEquipment = await equipmentRepository.findBySerialNumber(
             changes.serialNumber
         );
 
@@ -128,13 +102,18 @@ function updateEquipment(equipmentId, changes) {
         validateInstalledAt(changes.installedAt);
     }
 
-    return equipmentRepository.update(equipmentId, changes);
+    const updatedEquipment = await equipmentRepository.update(
+        equipmentId,
+        changes
+    );
+
+    return mapEquipmentToResponse(updatedEquipment);
 }
 
-function deleteEquipment(equipmentId) {
-    getEquipmentById(equipmentId);
+async function deleteEquipment(equipmentId) {
+    await getEquipmentById(equipmentId);
 
-    if (requestRepository.hasOpenRequestsByEquipmentId(equipmentId)) {
+    if (await requestRepository.hasOpenRequestsByEquipmentId(equipmentId)) {
         throw new ConflictError(
             'Нельзя удалить оборудование, у которого есть открытые заявки'
         );

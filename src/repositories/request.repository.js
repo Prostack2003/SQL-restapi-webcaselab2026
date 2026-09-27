@@ -1,3 +1,6 @@
+import { Op } from 'sequelize';
+import { MaintenanceRequest } from '../database/models/index.js';
+
 const requestItems = [];
 
 function create(maintenanceRequest) {
@@ -58,13 +61,17 @@ function findByEquipmentId(equipmentId) {
     return structuredClone(foundEquipment);
 }
 
-function hasOpenRequestsByEquipmentId(equipmentId) {
-    return requestItems.some((item) => {
-        return (
-            item.equipmentId === equipmentId &&
-            ['new', 'in_progress'].includes(item.status)
-        );
+async function hasOpenRequestsByEquipmentId(equipmentId) {
+    const openRequestsCount = await MaintenanceRequest.count({
+        where: {
+            equipmentId,
+            status: {
+                [Op.in]: ['new', 'in_progress'],
+            },
+        },
     });
+
+    return openRequestsCount > 0;
 }
 
 export {
