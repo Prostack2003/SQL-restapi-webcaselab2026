@@ -1,4 +1,26 @@
+import { ForeignKeyConstraintError, UniqueConstraintError } from 'sequelize';
+import { ConflictError } from '../errors/conflict.error.js';
 import { NotFoundError } from '../errors/not-found.error.js';
+
+function normalizeDatabaseError(error) {
+    if (error instanceof UniqueConstraintError) {
+        return new ConflictError(
+            'Запись с такими уникальными данными уже существует'
+        );
+    }
+
+    if (error instanceof ForeignKeyConstraintError) {
+        if (error.reltype === 'child') {
+            return new NotFoundError('Связанная запись не найдена');
+        }
+
+        return new ConflictError(
+            'Запись нельзя удалить, пока существуют связанные данные'
+        );
+    }
+
+    return error;
+}
 
 function getErrorStatus(error) {
     if (error.type === 'entity.parse.failed') {
@@ -26,7 +48,8 @@ function getErrorStatus(error) {
 }
 
 function errorHandler(error, request, response, _next) {
-    const status = getErrorStatus(error);
+    const normalizedError = normalizeDatabaseError(error);
+    const status = getErrorStatus(normalizedError);
 
     if (status === 400) {
         return response.status(400).json({
@@ -63,9 +86,9 @@ function errorHandler(error, request, response, _next) {
 
     return response.status(status).json({
         error: {
-            code: error.code,
-            message: error.message,
-            details: error.details ?? [],
+            code: normalizedError.code,
+            message: normalizedError.message,
+            details: normalizedError.details ?? [],
             requestId: request.id ?? null,
         },
     });
@@ -79,4 +102,9 @@ function notFoundHandler(request, response, next) {
     );
 }
 
-export { getErrorStatus, errorHandler, notFoundHandler };
+export {
+    getErrorStatus,
+    errorHandler,
+    notFoundHandler,
+    normalizeDatabaseError,
+};
