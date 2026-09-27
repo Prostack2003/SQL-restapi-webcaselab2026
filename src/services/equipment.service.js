@@ -33,13 +33,19 @@ async function createEquipment(data) {
 }
 
 function mapEquipmentToResponse(equipment) {
-    const { site, ...equipmentData } = equipment;
-
     return {
-        ...equipmentData,
+        id: equipment.id,
+        name: equipment.name,
+        type: equipment.type,
+        serialNumber: equipment.serialNumber,
+        status: equipment.status,
+        installedAt: equipment.installedAt,
+        createdAt: equipment.createdAt,
+        updatedAt: equipment.updatedAt,
+        passport: equipment.passport,
         location: {
-            lat: Number(site.latitude),
-            lon: Number(site.longitude),
+            lat: Number(equipment.site.latitude),
+            lon: Number(equipment.site.longitude),
         },
     };
 }
