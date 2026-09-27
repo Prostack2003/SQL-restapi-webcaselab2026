@@ -10,6 +10,8 @@ import {
     updateRequestBodySchema,
     changeRequestStatusBodySchema,
     requestQuerySchema,
+    assignRequestTeamBodySchema,
+    requestAssigneeParamsSchema,
 } from '../validators/request.schemas.js';
 import { ValidationError } from '../errors/validation.error.js';
 
@@ -107,6 +109,14 @@ function validateChangeRequestStatusBody(request, response, next) {
     return validateBody(changeRequestStatusBodySchema, request, next);
 }
 
+function validateAssignRequestTeamBody(request, response, next) {
+    return validateBody(assignRequestTeamBodySchema, request, next);
+}
+
+function validateRequestAssigneeParams(request, response, next) {
+    return validateParams(requestAssigneeParamsSchema, request, next);
+}
+
 export {
     validateCreateEquipmentBody,
     validateUpdateEquipmentBody,
@@ -117,4 +127,6 @@ export {
     validateCreateRequestBody,
     validateUpdateRequestBody,
     validateChangeRequestStatusBody,
+    validateAssignRequestTeamBody,
+    validateRequestAssigneeParams,
 };
